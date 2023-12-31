@@ -8,6 +8,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2.credentials import Credentials
 from io import BytesIO
+from functools import wraps
 
 app = Flask(__name__)
 
@@ -46,11 +47,20 @@ def upload_video_to_youtube(credentials, file):
     response = response.execute()
     return response
 
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session:
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route("/")
 def index():
     return render_template("index.html")
 
 @app.route("/dashboard")
+@login_required
 def dashboard():
     return render_template("home.html")
 
@@ -83,6 +93,7 @@ def login():
             password_check = text("SELECT password FROM public.users WHERE email = :email")
             password_check = db.session.execute(password_check, {'email': email}).scalar()
             if password_check and check_password_hash(password_check, password):
+                session['user'] = email
                 return redirect(url_for("dashboard"))
             else:
                 flash("Wrong credentials!")
@@ -100,7 +111,6 @@ def googleLogin():
 @app.route("/signin-google")
 def googleCallback():
     token = google.authorize_access_token()
-    session['user'] = token
     return redirect(url_for("dashboard"))
 
 @app.route('/upload', methods=['POST'])
