@@ -51,7 +51,7 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session:
-            return redirect(url_for('login', next=request.url))
+            return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -104,16 +104,19 @@ def login():
     return render_template('login.html')
 
 @app.route("/google-login")
+@login_required
 def googleLogin():
     redirect_uri = url_for('googleCallback', _external=True)
     return google.authorize_redirect(redirect_uri)
 
 @app.route("/signin-google")
+@login_required
 def googleCallback():
     token = google.authorize_access_token()
     return redirect(url_for("dashboard"))
 
 @app.route('/upload', methods=['POST'])
+@login_required
 def upload_video():
     file = request.files['file']
     token = session.get('user')
@@ -128,6 +131,7 @@ def upload_video():
     return "Done"
 
 @app.route("/logout")
+@login_required
 def logout():
     session.pop("user", None)
     return redirect(url_for("index"))
