@@ -115,8 +115,8 @@ def googleLogin():
 def googleCallback():
     token = google.authorize_access_token()
     token = json.dumps(token)
-    token_query = text("UPDATE public.users SET youtube = :token WHERE email = :email")
-    db.session.execute(token_query, {"token": token, "email": session.get('email')})
+    token_query = text("UPDATE public.users SET youtube = pgp_sym_encrypt(:token, :key) WHERE email = :email")
+    db.session.execute(token_query, {"token": token, "key": os.getenv('SECRET_KEY'), "email": session.get('email')})
     db.session.commit()
     return redirect(url_for("dashboard"))
 
@@ -124,8 +124,8 @@ def googleCallback():
 @login_required
 def upload_video():
     file = request.files['file']
-    token_query = text('SELECT youtube FROM public.users WHERE email = :email')
-    token = json.dumps(db.session.execute(token_query, {'email': session.get('email')}).scalar())
+    token_query = text('SELECT pgp_sym_decrypt(youtube, :key) FROM public.users WHERE email = :email')
+    token = db.session.execute(token_query, {'key': os.getenv('SECRET_KEY'), 'email': session.get('email')}).scalar()
     token = json.loads(token)
     credentials = Credentials(
         token=token.get('access_token'),
