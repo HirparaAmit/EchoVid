@@ -27,7 +27,8 @@ google = oauth.register(
     authorize_url='https://accounts.google.com/o/oauth2/auth',
     authorize_params=None,
     api_base_url='https://www.googleapis.com/oauth2/v1/',
-    client_kwargs={'scope': 'https://www.googleapis.com/auth/youtube.upload'},
+    client_kwargs={
+        'scope': 'https://www.googleapis.com/auth/youtube.upload'},
 )
 
 def upload_video_to_youtube(credentials, file):
@@ -108,7 +109,7 @@ def login():
 @login_required
 def googleLogin():
     redirect_uri = url_for('googleCallback', _external=True)
-    return google.authorize_redirect(redirect_uri)
+    return google.authorize_redirect(redirect_uri, access_type='offline')
 
 @app.route("/signin-google")
 @login_required
