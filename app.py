@@ -9,6 +9,7 @@ from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2.credentials import Credentials
 from io import BytesIO
 from functools import wraps
+import json
 
 app = Flask(__name__)
 
@@ -50,7 +51,7 @@ def upload_video_to_youtube(credentials, file):
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user' not in session:
+        if 'email' not in session:
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -93,7 +94,7 @@ def login():
             password_check = text("SELECT password FROM public.users WHERE email = :email")
             password_check = db.session.execute(password_check, {'email': email}).scalar()
             if password_check and check_password_hash(password_check, password):
-                session['user'] = email
+                session['email'] = email
                 return redirect(url_for("dashboard"))
             else:
                 flash("Wrong credentials!")
@@ -113,13 +114,19 @@ def googleLogin():
 @login_required
 def googleCallback():
     token = google.authorize_access_token()
+    token = json.dumps(token)
+    token_query = text("UPDATE public.users SET youtube = :token WHERE email = :email")
+    db.session.execute(token_query, {"token": token, "email": session.get('email')})
+    db.session.commit()
     return redirect(url_for("dashboard"))
 
 @app.route('/upload', methods=['POST'])
 @login_required
 def upload_video():
     file = request.files['file']
-    token = session.get('user')
+    token_query = text('SELECT youtube FROM public.users WHERE email = :email')
+    token = json.dumps(db.session.execute(token_query, {'email': session.get('email')}).scalar())
+    token = json.loads(token)
     credentials = Credentials(
         token=token.get('access_token'),
         refresh_token=token.get('refresh_token'),
@@ -133,7 +140,7 @@ def upload_video():
 @app.route("/logout")
 @login_required
 def logout():
-    session.pop("user", None)
+    session.pop("email", None)
     return redirect(url_for("index"))
 
 if __name__ == "__main__":
