@@ -1,24 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EchoVid</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EchoVid</title>
 </head>
 <body>
-  <h1>Welcome on Homepage</h1>
-  <form action="/upload" method=post enctype=multipart/form-data>
-    <input type=file name=file required>
-    <input type=submit value=Upload>
-  </form>
-  <p><a href="{{url_for('logout')}}">Logout</a></p>
-  <p><a href="{{url_for('googleLogin')}}">Connect YouTube</a></p>
-  {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            {% for message in messages %}
-                <div>{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-  {% endwith %}
+    <h1>Welcome on Homepage</h1>
+    <form action="/upload" method=post enctype=multipart/form-data>
+        <input type=file name=file required>
+        <input type=submit value=Upload>
+    </form>
+    <p><a href="{{url_for('logout')}}">Logout</a></p>
+    <div>
+        <h3>Connected Apps</h3>
+        {% for item in connected %}
+        {{item}}
+        {% endfor %}
+    </div>
+    <div>
+        <h3>Pending Apps</h3>
+        {% for item in pending %}
+        {{item}}
+        {% endfor %}
+    </div>
+    <!-- <p><a href="{{url_for('googleLogin')}}">Connect YouTube</a></p> -->
+    {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div>{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+    {% endwith %}
 </body>
 </html>

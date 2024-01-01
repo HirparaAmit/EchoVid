@@ -67,7 +67,17 @@ def index():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    return render_template("home.html")
+    data_query = text('SELECT (youtube IS NULL), (instagram IS NULL), (facebook IS NULL), (rumble IS NULL) FROM public.users WHERE email = :email')
+    youtube, instagram, facebook, rumble = db.session.execute(data_query, {"email": session.get('email')}).fetchone()
+    platforms = {
+        'youtube': youtube,
+        'instagram': instagram,
+        'facebook': facebook,
+        'rumble': rumble,
+    }
+    connected = [item for item, value in platforms.items() if not value]
+    pending = [item for item, value in platforms.items() if value]
+    return render_template("home.html", connected=connected, pending=pending)
 
 @app.route('/signup', methods=['GET','POST'])
 def signup():
@@ -159,7 +169,7 @@ def upload_video():
         client_id=os.getenv('OAUTH2_CLIENT_ID'),
         client_secret=os.getenv('OAUTH2_CLIENT_SECRET')
     )
-    # response = upload_video_to_youtube(credentials, file)
+    response = upload_video_to_youtube(credentials, file)
     return "Done"
 
 @app.route("/logout")
