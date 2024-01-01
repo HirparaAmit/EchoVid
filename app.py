@@ -10,6 +10,9 @@ from google.oauth2.credentials import Credentials
 from io import BytesIO
 from functools import wraps
 import json
+import requests
+import time
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -128,6 +131,23 @@ def upload_video():
     token_query = text('SELECT pgp_sym_decrypt(youtube, :key) FROM public.users WHERE email = :email')
     token = db.session.execute(token_query, {'key': os.getenv('SECRET_KEY'), 'email': session.get('email')}).scalar()
     token = json.loads(token)
+    if datetime.now() >= datetime.fromtimestamp(token.get('expires_at')):
+        params = {
+        'grant_type': 'refresh_token',
+        'client_id': os.getenv('OAUTH2_CLIENT_ID'),
+        'client_secret': os.getenv('OAUTH2_CLIENT_SECRET'),
+        'refresh_token': token.get('refresh_token')
+        }
+        response = requests.post('https://oauth2.googleapis.com/token', data=params)
+        if response.status_code == 200:
+            token = response.json()
+            token['refresh_token'] = params['refresh_token']
+            token['expires_at'] = int(time.time() + token.get('expires_in'))
+            token_query = text("UPDATE public.users SET youtube = pgp_sym_encrypt(:token, :key) WHERE email = :email")
+            db.session.execute(token_query, {"token": json.dumps(token), "key": os.getenv('SECRET_KEY'), "email": session.get('email')})
+            db.session.commit()
+        else:
+            raise Exception('Failed to refresh the access token')
     credentials = Credentials(
         token=token.get('access_token'),
         refresh_token=token.get('refresh_token'),
@@ -135,7 +155,7 @@ def upload_video():
         client_id=os.getenv('OAUTH2_CLIENT_ID'),
         client_secret=os.getenv('OAUTH2_CLIENT_SECRET')
     )
-    response = upload_video_to_youtube(credentials, file)
+    # response = upload_video_to_youtube(credentials, file)
     return "Done"
 
 @app.route("/logout")
