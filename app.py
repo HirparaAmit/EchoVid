@@ -147,7 +147,11 @@ def upload_video():
             db.session.execute(token_query, {"token": json.dumps(token), "key": os.getenv('SECRET_KEY'), "email": session.get('email')})
             db.session.commit()
         else:
-            raise Exception('Failed to refresh the access token')
+            token_query = text("UPDATE public.users SET youtube = NULL WHERE email = :email")
+            db.session.execute(token_query, {"email": session.get('email')})
+            db.session.commit()
+            flash('You need to reconnect the YouTube with EchoVid')
+            return redirect(url_for('/dashboard'))
     credentials = Credentials(
         token=token.get('access_token'),
         refresh_token=token.get('refresh_token'),
