@@ -141,9 +141,9 @@ def googleCallback():
 def instagramLogin():
     return "Instagram"
 
-@app.route('/upload', methods=['POST'])
+@app.route('/upload-youtube', methods=['POST'])
 @login_required
-def upload_video():
+def upload_youtube():
     file = request.files['file']
     token_query = text('SELECT pgp_sym_decrypt(youtube, :key) FROM public.users WHERE email = :email')
     token = db.session.execute(token_query, {'key': os.getenv('SECRET_KEY'), 'email': session.get('email')}).scalar()

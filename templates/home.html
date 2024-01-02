@@ -36,7 +36,7 @@
     <script>
         function submitForm() {
             var formData = new FormData(document.getElementById('form'));
-            fetch('/upload', {
+            fetch('/upload-youtube', {
                 method: 'POST',
                 body: formData,
             })
