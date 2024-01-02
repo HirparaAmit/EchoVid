@@ -1,5 +1,5 @@
 import os
-from flask import Flask, url_for, session, redirect, request, render_template, flash
+from flask import Flask, url_for, session, redirect, request, render_template, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -11,6 +11,7 @@ from io import BytesIO
 from functools import wraps
 import json
 import requests
+import random
 import time
 from datetime import datetime
 
@@ -50,7 +51,10 @@ def upload_video_to_youtube(credentials, file):
     media = MediaIoBaseUpload(BytesIO(file.read()), mimetype='video/*', resumable=True)
     response = youtube.videos().insert(part='snippet,status', body=body, media_body=media)
     response = response.execute()
-    return response
+    if 'id' in response:
+        return "success"
+    else:
+        return response
 
 def login_required(f):
     @wraps(f)
@@ -67,16 +71,14 @@ def index():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    data_query = text('SELECT (youtube IS NULL), (instagram IS NULL), (facebook IS NULL), (rumble IS NULL) FROM public.users WHERE email = :email')
-    youtube, instagram, facebook, rumble = db.session.execute(data_query, {"email": session.get('email')}).fetchone()
+    data_query = text('SELECT (youtube IS NULL), (instagram IS NULL) FROM public.users WHERE email = :email')
+    youtube, instagram = db.session.execute(data_query, {"email": session.get('email')}).fetchone()
     platforms = {
         'youtube': youtube,
-        'instagram': instagram,
-        'facebook': facebook,
-        'rumble': rumble,
+        'instagram': instagram
     }
-    connected = [item for item, value in platforms.items() if not value]
-    pending = [item for item, value in platforms.items() if value]
+    connected = [key for key, value in platforms.items() if not value]
+    pending = [key for key, value in platforms.items() if value]
     return render_template("home.html", connected=connected, pending=pending)
 
 @app.route('/signup', methods=['GET','POST'])
@@ -118,9 +120,9 @@ def login():
             return redirect(url_for('login'))
     return render_template('login.html')
 
-@app.route("/google-login")
+@app.route("/youtube-login")
 @login_required
-def googleLogin():
+def youtubeLogin():
     redirect_uri = url_for('googleCallback', _external=True)
     return google.authorize_redirect(redirect_uri, access_type='offline')
 
@@ -133,6 +135,11 @@ def googleCallback():
     db.session.execute(token_query, {"token": token, "key": os.getenv('SECRET_KEY'), "email": session.get('email')})
     db.session.commit()
     return redirect(url_for("dashboard"))
+
+@app.route("/instagram-login")
+@login_required
+def instagramLogin():
+    return "Instagram"
 
 @app.route('/upload', methods=['POST'])
 @login_required
@@ -161,7 +168,7 @@ def upload_video():
             db.session.execute(token_query, {"email": session.get('email')})
             db.session.commit()
             flash('You need to reconnect the YouTube with EchoVid')
-            return redirect(url_for('/dashboard'))
+            return redirect(url_for('dashboard'))
     credentials = Credentials(
         token=token.get('access_token'),
         refresh_token=token.get('refresh_token'),
@@ -169,8 +176,12 @@ def upload_video():
         client_id=os.getenv('OAUTH2_CLIENT_ID'),
         client_secret=os.getenv('OAUTH2_CLIENT_SECRET')
     )
-    response = upload_video_to_youtube(credentials, file)
-    return "Done"
+    # response = upload_video_to_youtube(credentials, file)
+    response = random.choice(['success', {}])
+    if response == 'success':
+        return jsonify({'status':'success', 'message':'Video Uploaded on YouTube'})
+    else:
+        return jsonify({'status':'error', 'message':'Error Uploading Video on YouTube'})
 
 @app.route("/logout")
 @login_required
