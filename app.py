@@ -177,7 +177,6 @@ def upload_video():
         client_secret=os.getenv('OAUTH2_CLIENT_SECRET')
     )
     # response = upload_video_to_youtube(credentials, file)
-    response = random.choice(['success', {}])
     if response == 'success':
         return jsonify({'status':'success', 'message':'Video Uploaded on YouTube'})
     else:
