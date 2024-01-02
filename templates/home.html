@@ -7,10 +7,12 @@
 </head>
 <body>
     <h1>Welcome on Homepage</h1>
-    <form id="form" method=post enctype=multipart/form-data>
-        <input type=file name=file required>
-        <button type="button" onclick="submitForm()">Submit</button>
-    </form>
+    {% if connected|length != 0 %}
+        <form id="form" method=post enctype=multipart/form-data>
+            <input type=file name=file required>
+            <button type="button" onclick="submitForm()">Submit</button>
+        </form>
+    {% endif %}
     <p><a href="{{url_for('logout')}}">Logout</a></p>
     <div>
         <h3>Connected Apps</h3>
