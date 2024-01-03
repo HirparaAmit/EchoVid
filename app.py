@@ -10,8 +10,8 @@ from google.oauth2.credentials import Credentials
 from io import BytesIO
 from functools import wraps
 import json
+import vimeo
 import requests
-import random
 import time
 from datetime import datetime
 
@@ -24,8 +24,8 @@ app.secret_key = os.getenv("FLASK_SECRET")
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
-    client_id=os.getenv("OAUTH2_CLIENT_ID"),
-    client_secret=os.getenv("OAUTH2_CLIENT_SECRET"),
+    client_id=os.getenv("YOUTUBE_CLIENT_ID"),
+    client_secret=os.getenv("YOUTUBE_CLIENT_SECRET"),
     access_token_url='https://accounts.google.com/o/oauth2/token',
     access_token_params=None,
     authorize_url='https://accounts.google.com/o/oauth2/auth',
@@ -129,30 +129,47 @@ def youtubeLogin():
 @app.route("/signin-google")
 @login_required
 def googleCallback():
-    token = google.authorize_access_token()
-    token = json.dumps(token)
-    token_query = text("UPDATE public.users SET youtube = pgp_sym_encrypt(:token, :key) WHERE email = :email")
-    db.session.execute(token_query, {"token": token, "key": os.getenv('SECRET_KEY'), "email": session.get('email')})
-    db.session.commit()
+    try:
+        token = google.authorize_access_token()
+        token = json.dumps(token)
+        token_query = text("UPDATE public.users SET youtube = pgp_sym_encrypt(:token, :key) WHERE email = :email")
+        db.session.execute(token_query, {"token": token, "key": os.getenv('SECRET_KEY'), "email": session.get('email')})
+        db.session.commit()
+    except:
+        flash("Something Went Wrong!! Please Try Again")
     return redirect(url_for("dashboard"))
 
 @app.route("/instagram-login")
 @login_required
 def instagramLogin():
-    return "Instagram"
+    return redirect(f"https://www.facebook.com/v13.0/dialog/oauth?client_id={os.getenv('INSTAGRAM_CLIENT_ID')}&redirect_uri=http%3A%2F%2Flocalhost%3A5000%2Fsignin-instagram&scope=instagram_basic,instagram_content_publish,pages_show_list")
+
+@app.route("/signin-instagram")
+@login_required
+def instagramCallback():
+    code = request.args.get('code')
+    if code:
+        token_exchange_url = f"https://graph.facebook.com/v13.0/oauth/access_token?client_id={os.getenv('INSTAGRAM_CLIENT_ID')}&redirect_uri=http%3A%2F%2Flocalhost%3A5000%2Fsignin-instagram&client_secret={os.getenv('INSTAGRAM_CLIENT_SECRET')}&code={code}"
+        token = requests.get(token_exchange_url).json()
+        token = json.dumps(token)
+        token_query = text("UPDATE public.users SET instagram = pgp_sym_encrypt(:token, :key) WHERE email = :email")
+        db.session.execute(token_query, {"token": token, "key": os.getenv('SECRET_KEY'), "email": session.get('email')})
+        db.session.commit()
+    else:
+        flash('Something Went Wrong!! Please Try Again')
+    return redirect(url_for('dashboard'))
 
 @app.route('/upload-youtube', methods=['POST'])
 @login_required
 def upload_youtube():
-    file = request.files['file']
     token_query = text('SELECT pgp_sym_decrypt(youtube, :key) FROM public.users WHERE email = :email')
     token = db.session.execute(token_query, {'key': os.getenv('SECRET_KEY'), 'email': session.get('email')}).scalar()
     token = json.loads(token)
     if datetime.now() >= datetime.fromtimestamp(token.get('expires_at')):
         params = {
         'grant_type': 'refresh_token',
-        'client_id': os.getenv('OAUTH2_CLIENT_ID'),
-        'client_secret': os.getenv('OAUTH2_CLIENT_SECRET'),
+        'client_id': os.getenv('YOUTUBE_CLIENT_ID'),
+        'client_secret': os.getenv('YOUTUBE_CLIENT_SECRET'),
         'refresh_token': token.get('refresh_token')
         }
         response = requests.post('https://oauth2.googleapis.com/token', data=params)
@@ -173,14 +190,26 @@ def upload_youtube():
         token=token.get('access_token'),
         refresh_token=token.get('refresh_token'),
         token_uri='https://oauth2.googleapis.com/token',
-        client_id=os.getenv('OAUTH2_CLIENT_ID'),
-        client_secret=os.getenv('OAUTH2_CLIENT_SECRET')
+        client_id=os.getenv('YOUTUBE_CLIENT_ID'),
+        client_secret=os.getenv('YOUTUBE_CLIENT_SECRET')
     )
+    # file = request.files['file']
     # response = upload_video_to_youtube(credentials, file)
     if response == 'success':
-        return jsonify({'status':'success', 'message':'Video Uploaded on YouTube'})
+        return jsonify({'message':'Video Uploaded on YouTube'})
     else:
-        return jsonify({'status':'error', 'message':'Error Uploading Video on YouTube'})
+        return jsonify({'message':'Something Went Wrong!! Video is not uploaded on YouTube'})
+
+@app.route('/upload-instagram', methods=['POST'])
+@login_required
+def upload_instagram():
+    token_query = text('SELECT pgp_sym_decrypt(instagram, :key) FROM public.users WHERE email = :email')
+    token = db.session.execute(token_query, {'key': os.getenv('SECRET_KEY'), 'email': session.get('email')}).scalar()
+    token = json.loads(token)
+    url = f"https://graph.facebook.com/v13.0/me?fields=id&access_token={token.get('access_token')}"
+    ig_id = requests.get(url)
+    ig_id = ig_id.json().get('id')
+    return jsonify({'message':'Done'})
 
 @app.route("/logout")
 @login_required

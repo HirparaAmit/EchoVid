@@ -46,6 +46,14 @@
             .then(data => {
                 document.getElementById('message').innerHTML = data.message;
             })
+            fetch('/upload-instagram', {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('message').innerHTML = data.message;
+            })
         }
     </script>
 </body>
