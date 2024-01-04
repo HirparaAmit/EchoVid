@@ -38,14 +38,6 @@
     <script>
         function submitForm() {
             var formData = new FormData(document.getElementById('form'));
-            fetch('/upload-youtube', {
-                method: 'POST',
-                body: formData,
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('message').innerHTML = data.message;
-            })
             fetch('/upload-instagram', {
                 method: 'POST',
                 body: formData,

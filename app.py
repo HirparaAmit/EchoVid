@@ -10,7 +10,7 @@ from google.oauth2.credentials import Credentials
 from io import BytesIO
 from functools import wraps
 import json
-import vimeo
+import dropbox
 import requests
 import time
 from datetime import datetime
@@ -142,14 +142,14 @@ def googleCallback():
 @app.route("/instagram-login")
 @login_required
 def instagramLogin():
-    return redirect(f"https://www.facebook.com/v13.0/dialog/oauth?client_id={os.getenv('INSTAGRAM_CLIENT_ID')}&redirect_uri=http%3A%2F%2Flocalhost%3A5000%2Fsignin-instagram&scope=instagram_basic,instagram_content_publish,pages_show_list")
+    return redirect(f"https://www.facebook.com/v18.0/dialog/oauth?client_id={os.getenv('INSTAGRAM_CLIENT_ID')}&redirect_uri=http%3A%2F%2Flocalhost%3A5000%2Fsignin-instagram&scope=ads_management,business_management,instagram_basic,instagram_content_publish,pages_read_engagement")
 
 @app.route("/signin-instagram")
 @login_required
 def instagramCallback():
     code = request.args.get('code')
     if code:
-        token_exchange_url = f"https://graph.facebook.com/v13.0/oauth/access_token?client_id={os.getenv('INSTAGRAM_CLIENT_ID')}&redirect_uri=http%3A%2F%2Flocalhost%3A5000%2Fsignin-instagram&client_secret={os.getenv('INSTAGRAM_CLIENT_SECRET')}&code={code}"
+        token_exchange_url = f"https://graph.facebook.com/v18.0/oauth/access_token?client_id={os.getenv('INSTAGRAM_CLIENT_ID')}&redirect_uri=http%3A%2F%2Flocalhost%3A5000%2Fsignin-instagram&client_secret={os.getenv('INSTAGRAM_CLIENT_SECRET')}&code={code}"
         token = requests.get(token_exchange_url).json()
         token = json.dumps(token)
         token_query = text("UPDATE public.users SET instagram = pgp_sym_encrypt(:token, :key) WHERE email = :email")
@@ -206,9 +206,41 @@ def upload_instagram():
     token_query = text('SELECT pgp_sym_decrypt(instagram, :key) FROM public.users WHERE email = :email')
     token = db.session.execute(token_query, {'key': os.getenv('SECRET_KEY'), 'email': session.get('email')}).scalar()
     token = json.loads(token)
-    url = f"https://graph.facebook.com/v13.0/me?fields=id&access_token={token.get('access_token')}"
-    ig_id = requests.get(url)
-    ig_id = ig_id.json().get('id')
+    url = f"https://graph.facebook.com/v18.0/me/accounts?access_token={token.get('access_token')}"
+    fb_page_id = requests.get(url).json()['data'][0]['id']
+    url = f"https://graph.facebook.com/v18.0/{fb_page_id}?fields=instagram_business_account&access_token={token.get('access_token')}"
+    ig_id = requests.get(url).json()['instagram_business_account']['id']
+    video_link = 'https://www.pexels.com/video/man-on-a-pier-at-a-beautiful-river-5512609/'
+    url = f"https://graph.facebook.com/v18.0/{ig_id}/media?media_type=REELS&video_url={video_link}&caption=Testing..."
+    print(requests.post(url).json())
+    # dbx = dropbox.Dropbox(os.getenv('DROPBOX_ACCESS_TOKEN'))
+    # file = request.files['file']
+    # dbx.files_upload(file.read(), f'/{file.filename}.mp4')
+    # video_link_metadata = dbx.sharing_create_shared_link_with_settings(f'/{file.filename}.mp4')
+    # video_link = video_link_metadata.url
+    # video_link = 'https://www.pexels.com/video/man-on-a-pier-at-a-beautiful-river-5512609/'
+    # url = f"https://graph.facebook.com/v18.0/{ig_id}/media?media_type=REELS&video_url={video_link}&caption=Testing..."
+    # payload = {
+    #     'access_token': token.get('access_token'),
+    #     'media_type': 'VIDEO',
+    #     'video_url': video_link,
+    #     'caption': 'Testing...'
+    # }
+    # creation_id = requests.post(url).json()
+    # if 'error' in creation_id:
+        # dbx.files_delete_v2(f'/{file.filename}.mp4')
+    #     print("Error creating container:", creation_id['error'])
+    #     return redirect(url_for('dashboard'))
+    # else:
+    #     creation_id = creation_id.get('id')
+    #     print(creation_id)
+    #     publish_url = f"https://graph.facebook.com/v18.0/{ig_id}/media_publish"
+    #     publish_payload = {
+    #         'access_token': token.get('access_token'),
+    #         'creation_id': creation_id
+    #     }
+        # requests.post(publish_url, data=publish_payload)
+        # dbx.files_delete_v2(f'/{file.filename}.mp4')
     return jsonify({'message':'Done'})
 
 @app.route("/logout")
